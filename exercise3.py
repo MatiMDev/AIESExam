@@ -247,7 +247,7 @@ def train_for_objective(obj_name: str):
             val_epochs.append(epoch)
             val_feas_scores.append(feas_score)
 
-    # (Report) training loss
+    # training loss
     plt.figure()
     plt.semilogy(hist_total)
     plt.xlabel("Epoch")
@@ -258,7 +258,7 @@ def train_for_objective(obj_name: str):
     plt.savefig(os.path.join(OUT_DIR, f"ex3_training_loss_{obj_name}.png"), dpi=200)
     plt.close()
 
-    # (Report) objective vs penalties
+    # objective vs penalties
     plt.figure()
     plt.semilogy(hist_obj, label="objective mean")
     plt.semilogy(np.array(hist_c1) * LAMBDA_C, label="inner penalty * λ")

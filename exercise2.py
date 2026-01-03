@@ -239,9 +239,9 @@ def train_pinn(
     Xva = to_tensor(t_val, cfg.device)
     Yva = to_tensor(u_val, cfg.device)
 
-    # collocation points: sample across the *full* domain to enforce physics everywhere
+    # collocation points: sample across the full domain to enforce physics everywhere
     t_col = np.random.uniform(np.min(t_val), np.max([np.max(t_val), 10.0]), size=cfg.n_collocation)
-    t_col = np.random.uniform(0.0, 10.0, size=cfg.n_collocation)  # full domain (recommended)
+    t_col = np.random.uniform(0.0, 10.0, size=cfg.n_collocation)  # full domain
     Xcol = to_tensor(t_col, cfg.device)
 
     best_state = None
@@ -266,7 +266,7 @@ def train_pinn(
         loss_total.backward()
         opt.step()
 
-        # validation: compare to validation data only (standard practice)
+        # validation: compare to validation data only
         model.eval()
         with torch.no_grad():
             val_loss = data_loss_fn(model(Xva), Yva).item()
