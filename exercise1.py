@@ -282,8 +282,10 @@ def main(dataset_path: str, do_tuning: bool = False) -> None:
     # 1) Ridge baseline
     ridge = make_ridge_model(feature_cols)
     ridge.fit(X_train, y_train)
+    pred_train = ridge.predict(X_train)
     pred_val = ridge.predict(X_val)
     pred_test = ridge.predict(X_test)
+    print_eval("Ridge (TRAIN)", evaluate(y_train, pred_train))
     print_eval("Ridge (VAL)", evaluate(y_val, pred_val))
     print_eval("Ridge (TEST)", evaluate(y_test, pred_test))
 
@@ -294,20 +296,24 @@ def main(dataset_path: str, do_tuning: bool = False) -> None:
         hgbr = make_hgbr_model(feature_cols)
 
     hgbr.fit(X_train, y_train)
+    pred_train = hgbr.predict(X_train)
     pred_val = hgbr.predict(X_val)
     pred_test = hgbr.predict(X_test)
+    print_eval("HGBR (TRAIN)", evaluate(y_train, pred_train))
     print_eval("HGBR (VAL)", evaluate(y_val, pred_val))
     print_eval("HGBR (TEST)", evaluate(y_test, pred_test))
 
     # 3) MLP
     mlp = make_mlp_model(feature_cols)
     mlp.fit(X_train, y_train)
+    pred_train = mlp.predict(X_train)
     pred_val = mlp.predict(X_val)
     pred_test = mlp.predict(X_test)
+    print_eval("MLP (TRAIN)", evaluate(y_train, pred_train))
     print_eval("MLP (VAL)", evaluate(y_val, pred_val))
     print_eval("MLP (TEST)", evaluate(y_test, pred_test))
 
-    # Choose best model (example: HGBR) and plot diagnostics on TEST
+    # Choose best model and plot diagnostics on TEST
     best_model = hgbr
     best_pred = best_model.predict(X_test)
     plot_pred_vs_true(y_test, best_pred, title="Best model (TEST)")

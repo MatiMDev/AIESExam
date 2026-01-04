@@ -329,6 +329,12 @@ def train_for_objective(obj_name: str):
         xy_hat = model(p_t).cpu().numpy()
     x_hat, y_hat = xy_hat[:, 0], xy_hat[:, 1]
 
+    # NN inference timing
+    t0 = time.time()
+    with torch.no_grad():
+        _ = model(p_t)
+    t_nn = time.time() - t0
+
     def obj_np(x, y):
         if obj_name == "himmelblau":
             return (x**2 + y - 11.0) ** 2 + (x + y**2 - 7.0) ** 2
@@ -349,32 +355,37 @@ def train_for_objective(obj_name: str):
     plt.savefig(os.path.join(OUT_DIR, f"ex3_obj_comparison_{obj_name}.png"), dpi=200)
     plt.close()
 
-    # Summary for appendix/logs + helps justify the numbers in your report text
     mean_gap = float(np.nanmean(np.abs(f_hat - f_base)))
+
     # feasibility quick stats on val
     xvt = torch.tensor(xv, dtype=torch.float32)
     yvt = torch.tensor(yv, dtype=torch.float32)
     pvt = torch.tensor(pv, dtype=torch.float32)
     c1v, c2v, c3v, bv = constraint_penalties(xvt, yvt, pvt)
 
+    # explicit feasibility metrics
+    total_violation = c1v + c2v + c3v + bv
+    tol = 1e-4
+    feasible_pct = float((total_violation < tol).float().mean().item()) * 100.0
+
     print(f"\n=== Exercise 3 summary: {obj_name} ===")
     print(f"Saved figures to: {OUT_DIR}/")
     print(f"Baseline grid search time ({N_COMPARE} p values): {t_baseline:.2f} s")
+    print(f"NN inference time ({N_COMPARE} p values): {t_nn:.6f} s")
     print(f"Objective gap (mean |f_hat - f_base|): {mean_gap:.4f}")
     print(f"Val mean penalties: c1={float(c1v.item()):.3e}, c2={float(c2v.item()):.3e}, "
           f"c3={float(c3v.item()):.3e}, box={float(bv.item()):.3e}")
+    print(f"Validation feasible (<{tol}): {feasible_pct:.2f}%")
 
     return mean_gap, model
 
 
 def main():
-    # required by exercise: show a flowchart of the method
     save_flowchart(os.path.join(OUT_DIR, "ex3_flowchart.png"))
 
     gap_h, _ = train_for_objective("himmelblau")
     gap_m, _ = train_for_objective("mccormick")
 
-    # Keep these numbers aligned with what you state in the report text
     print("\n=== Report numbers (copy into LaTeX text) ===")
     print(f"Himmelblau mean objective gap: {gap_h:.4f}")
     print(f"McCormick mean objective gap:  {gap_m:.4f}")

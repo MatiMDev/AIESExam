@@ -406,6 +406,73 @@ def run_once(lambda_phys: float) -> Tuple[float, Dict[str, float]]:
 
     return metrics["PINN_RMSE"], metrics
 
+# 8. Data volume study
+
+def run_data_volume_study(
+    train_sizes: List[int],
+    lambda_phys: float = 1.0
+) -> None:
+    """
+    Study effect of training data volume on NN vs PINN performance.
+    This function is purely additive and does not modify existing experiments.
+    """
+    set_seed(42)
+
+    nn_rmses = []
+    pinn_rmses = []
+
+    for n in train_sizes:
+        print(f"\n--- Data volume study: n_train={n} ---")
+
+        data_cfg = DataConfig(n_train=n, n_val=n)
+        ds = make_dataset(data_cfg)
+
+        # NN
+        nn_model = MLP([1, 64, 64, 64, 1], activation=nn.Tanh())
+        nn_cfg = TrainConfig(lambda_phys=0.0, epochs=5000, patience=350, lr=1e-3)
+
+        nn_model, _ = train_conventional_nn(
+            nn_model, ds["t_train"], ds["u_train"], ds["t_val"], ds["u_val"], nn_cfg
+        )
+        nn_pred = evaluate_model_on_grid(nn_model, ds["t_test"], nn_cfg.device)
+        nn_rmse_val = rmse(nn_pred, ds["u_test_true"])
+        nn_rmses.append(nn_rmse_val)
+
+        # PINN
+        pinn_model = MLP([1, 64, 64, 64, 1], activation=nn.Tanh())
+        pinn_cfg = TrainConfig(lambda_phys=lambda_phys, epochs=7000, patience=500, lr=1e-3)
+
+        pinn_model, _ = train_pinn(
+            pinn_model,
+            ds["t_train"], ds["u_train"],
+            ds["t_val"], ds["u_val"],
+            (data_cfg.m, data_cfg.c, data_cfg.k),
+            pinn_cfg
+        )
+        pinn_pred = evaluate_model_on_grid(pinn_model, ds["t_test"], pinn_cfg.device)
+        pinn_rmse_val = rmse(pinn_pred, ds["u_test_true"])
+        pinn_rmses.append(pinn_rmse_val)
+
+        print(f"NN RMSE   : {nn_rmse_val:.6f}")
+        print(f"PINN RMSE : {pinn_rmse_val:.6f}")
+
+    # Plot
+    ensure_dir("figs")
+    plt.figure()
+    plt.plot(train_sizes, nn_rmses, marker="o", label="NN (data-driven)")
+    plt.plot(train_sizes, pinn_rmses, marker="o", label="PINN")
+    plt.xlabel("Number of training samples")
+    plt.ylabel("Test RMSE")
+    plt.title("Effect of training data volume on NN vs PINN")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("figs/data_volume_study.png", dpi=200)
+    plt.close()
+
+    print("\n=== Data volume study summary ===")
+    for n, e_nn, e_pinn in zip(train_sizes, nn_rmses, pinn_rmses):
+        print(f"n_train={n:3d} | NN RMSE={e_nn:.6f} | PINN RMSE={e_pinn:.6f}")
+
 
 def main() -> None:
     # Main run for plots: lambda_phys = 1.0 (commonly a reasonable start)
@@ -437,5 +504,73 @@ def main() -> None:
     print("\nFigures saved to ./figs/ (nn_fit.png, pinn_fit.png, training_curves.png, sensitivity_lambda.png)")
 
 
+# 9. NN architecture comparison (EXAM REQUIREMENT)
+
+def run_nn_architecture_study() -> None:
+    """
+    Compare different NN architectures for the purely data-driven model.
+    This directly fulfills the exam requirement to test different NN settings.
+    """
+    set_seed(42)
+
+    data_cfg = DataConfig()
+    ds = make_dataset(data_cfg)
+
+    architectures = {
+        "2x32": [1, 32, 32, 1],
+        "3x64": [1, 64, 64, 64, 1],
+        "4x64": [1, 64, 64, 64, 64, 1],
+        "3x128": [1, 128, 128, 128, 1],
+    }
+
+    rmses = {}
+
+    for name, layers in architectures.items():
+        print(f"\n--- NN architecture: {name} ---")
+
+        model = MLP(layers, activation=nn.Tanh())
+        cfg = TrainConfig(
+            lambda_phys=0.0,
+            epochs=5000,
+            patience=350,
+            lr=1e-3
+        )
+
+        model, _ = train_conventional_nn(
+            model,
+            ds["t_train"], ds["u_train"],
+            ds["t_val"], ds["u_val"],
+            cfg
+        )
+
+        pred = evaluate_model_on_grid(model, ds["t_test"], cfg.device)
+        err = rmse(pred, ds["u_test_true"])
+        rmses[name] = err
+
+        print(f"Test RMSE ({name}) = {err:.6f}")
+
+    # Plot
+    ensure_dir("figs")
+    plt.figure()
+    plt.bar(rmses.keys(), rmses.values())
+    plt.ylabel("Test RMSE")
+    plt.xlabel("NN architecture")
+    plt.title("Effect of NN architecture on extrapolation performance")
+    plt.tight_layout()
+    plt.savefig("figs/nn_architecture_study.png", dpi=200)
+    plt.close()
+
+    print("\n=== NN Architecture Study Summary ===")
+    for k, v in rmses.items():
+        print(f"{k:>6s} : RMSE = {v:.6f}")
+
+
 if __name__ == "__main__":
     main()
+
+    run_data_volume_study(
+        train_sizes=[10, 25, 50, 100],
+        lambda_phys=1.0
+    )
+
+    run_nn_architecture_study()
